@@ -17,7 +17,7 @@ use std::fs::File;
 use std::io;
 use csv::WriterBuilder;
 //use std::io::prelude::*;
-
+use regex::Regex;
 //use std::error::Error;
 //use std::process;
 // By default, struct field names are deserialized based on the position of
@@ -34,20 +34,18 @@ struct Proj {
 }
 
 named!(get_keyleader<&str,&str>,
-		ws!(
-			alt!(
+		alt!(
 					
-					tag!("Key leader: ") | tag!("Key leadership: ") | tag!("Key Executives: ") | tag!("Key Executive: ")
+			tag!("Key leaders: ") | tag!("Key leader: ") | tag!("Key leadership: ") | tag!("Key Executives: ") | tag!("Key Executive: ")
 					
-			)
 		)
+		
 );
 named!(get_bcp<&str,&str>,
-	ws!(
-    	alt!(
-			tag!("Blockchain platforms: ") | tag!("Blockchain platform: ")| tag!("Blockchain: ")
-		)
+	alt!(
+		tag!("Blockchain Platforms: ") | tag!("Blockchain platforms: ") | tag!("Blockchain platform: ")| tag!("Blockchain: ")
 	)
+	
 );
 
 fn outputcsv(outfilename: &str, projs: &Vec<&str>) -> io::Result<()> {
@@ -62,6 +60,10 @@ fn outputcsv(outfilename: &str, projs: &Vec<&str>) -> io::Result<()> {
 		let intv: Vec<&str> = i.split("\r\n")
 							  .filter(|s| s.trim().len() >0) //get rid of blank lines
 							  .collect();
+		if intv.len() < 5 
+		{
+			continue;
+		}
 		let company: String = intv[0].to_string();
 		let location: String = intv[1].to_string();
 		let description: String = intv[2].to_string();
@@ -114,14 +116,15 @@ fn outputcsv(outfilename: &str, projs: &Vec<&str>) -> io::Result<()> {
 // Or just a vector of projects
 // The operations on this can be generalized removing hardcoding
 
-fn chop_parsely(infilename: &str, splitstr: &str, outf: &str) ->  io::Result<()> {
+fn chop_parsely(infilename: &str, sep: &Regex, outf: &str) ->  io::Result<()> {
     //let file = File::open(&infilename)?;
 
     //let reader = io::BufReader::new(file);
 
 	//let data: Vec<u32> = data_str.lines_any().filter_map(|s| s.trim().parse()).collect();
     let instr = fs::read_to_string(&infilename)?;
-    let projects: Vec<&str> = instr.split(splitstr).collect();
+    let projects: Vec<&str> = sep.split(&instr).into_iter().collect();
+
 	outputcsv(outf, &projects)
     //instr.split(splitchar);
     
@@ -152,9 +155,10 @@ fn main() {
 			None => {println!("There is no output filename"); usage();},
 			
 		}
-		
-	    let _res=chop_parsely(&infilename, "—\r\n", &outfilename);
-	    
+		let sep = Regex::new("________________|—(\r\n)").unwrap();
+		//let splitstr = "________________\r\n";
+	    let _res=chop_parsely(&infilename, &sep, &outfilename);
+    
 	}
     else 
     {
